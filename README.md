@@ -1,6 +1,21 @@
 # Anki Vocabulary Builder
 
-Build rich Anki flashcard decks from a plain word list. Cards include IPA pronunciation, audio, definitions, etymology, example sentences from literature, and images — scraped automatically from The Free Dictionary.
+Build rich Anki flashcard decks from a plain word list. Cards include IPA pronunciation, audio, definitions, etymology, example sentences, synonyms, antonyms, and images — scraped automatically from language-specific dictionaries.
+
+Supports **English** and **German** out of the box, with a plugin architecture that makes adding new languages straightforward.
+
+---
+
+## Language support
+
+| Language | Code | Dictionary source | Default deck |
+|---|---|---|---|
+| English | `en` | [The Free Dictionary](https://www.thefreedictionary.com) + [Free Thesaurus](https://www.freethesaurus.com) | English Vocabulary |
+| German | `de` | [DWDS](https://www.dwds.de) (Digitales Wörterbuch der deutschen Sprache) | German Vocabulary |
+
+**English cards** include: IPA, audio, definitions with POS groups, etymology, example sentences from literature, synonyms, antonyms, and an optional image.
+
+**German cards** include: IPA, audio, definitions with genus-annotated POS (`noun (das)`, `noun (der)`, `noun (die)`), etymology, curated usage examples from DWDS, synonyms (via OpenThesaurus), and an optional image.
 
 ---
 
@@ -9,6 +24,19 @@ Build rich Anki flashcard decks from a plain word list. Cards include IPA pronun
 - Python 3.11+
 - Node.js 18+ (for the frontend build)
 - [Anki](https://apps.ankiweb.net/) desktop app with the **AnkiConnect** add-on
+
+---
+
+## Install AnkiConnect
+
+This is required regardless of how you run the app.
+
+1. Open Anki
+2. Go to **Tools → Add-ons → Get Add-ons…**
+3. Enter code: `2055492159`
+4. Restart Anki
+
+AnkiConnect exposes a local API on `http://localhost:8765`. The app uses this to push cards directly into your deck — no manual import/export needed.
 
 ---
 
@@ -40,14 +68,7 @@ On subsequent runs it skips steps that are already done and goes straight to sta
 
 ## Manual setup (alternative)
 
-1. Open Anki
-2. Go to **Tools → Add-ons → Get Add-ons…**
-3. Enter code: `2055492159`
-4. Restart Anki
-
-AnkiConnect exposes a local API on `http://localhost:8765`. The app uses this to push cards directly into your deck — no manual import/export needed.
-
-### 2. Install Python dependencies
+### Install Python dependencies
 
 ```bash
 cd anki-builder
@@ -56,7 +77,7 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 3. Build the frontend (first run only)
+### Build the frontend (first run only)
 
 ```bash
 cd frontend
@@ -87,24 +108,43 @@ Options:
 ## Usage
 
 1. **Start Anki** and make sure AnkiConnect is installed (green dot in the top bar)
-2. **Import words** — drag a `.txt` file (one word per line) into the Import panel
-3. The app scrapes each word and pushes cards to Anki automatically
-4. **Browse** the word list and click any word to preview its card
-5. **Edit** any field inline and save — changes sync to Anki immediately
-6. If Anki wasn't running during import, click **Sync to Anki** to flush the queue
+2. **Select a language** (English or German) in the language selector
+3. **Import words** — drag a `.txt` file (one word per line) into the Import panel
+4. The app scrapes each word from the appropriate dictionary and pushes cards to Anki automatically
+5. **Browse** the word list and click any word to preview its card
+6. **Edit** any field inline and save — changes are pushed to Anki immediately if **Auto Sync** is on, otherwise they queue as pending
+7. Use the **Sync to Anki** button to flush the queue at any time (required when Auto Sync is off, or when Anki wasn't running during import)
 
 ---
 
 ## Word file format
 
-Plain text, one word per line:
+Plain text, one word per line. German nouns can be entered with or without their article.
 
 ```
 serendipity
 melancholy
 ephemeral
-sycophant
 ```
+
+```
+Haus
+laufen
+schön
+```
+
+---
+
+## AI-powered translation (optional)
+
+The app can translate words into any target language using the OpenAI API. Configure it in the **Settings** page:
+
+- **OpenAI API key** — your API key
+- **OpenAI model** — e.g. `gpt-4o-mini` (default)
+- **Target language** — the language to translate into (e.g. `Polish`, `Spanish`)
+- **OpenAI base URL** — optional, for compatible third-party APIs
+
+Once configured, translations appear on the card back and are synced to Anki.
 
 ---
 
@@ -113,7 +153,17 @@ sycophant
 1. Create `backend/languages/yourlang.py` implementing `LanguageModule`
 2. Register it in `backend/languages/__init__.py`
 
-See `backend/languages/english.py` for a complete example.
+The module must implement two methods:
+
+```python
+def fetch(self, word: str) -> WordData:
+    """Scrape all card data for a word from the language's dictionary."""
+
+def should_fetch_image(self, data: WordData) -> bool:
+    """Return True if fetching an image makes sense for this word."""
+```
+
+See `backend/languages/english.py` or `backend/languages/german.py` for complete examples.
 
 ---
 
@@ -121,6 +171,7 @@ See `backend/languages/english.py` for a complete example.
 
 ```bash
 python scrape.py words.txt --lang en
+python scrape.py words.txt --lang de
 python scrape.py --list-langs
 ```
 
