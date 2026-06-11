@@ -59,7 +59,7 @@ def _conn():
 
 def init_db() -> None:
     """Create tables if they don't exist."""
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS words (
                 id            INTEGER PRIMARY KEY,
@@ -104,7 +104,6 @@ def init_db() -> None:
                 value TEXT NOT NULL
             )
         """)
-        conn.commit()
     logger.info("Database ready at %s", DB_PATH)
 
 
@@ -116,7 +115,7 @@ def upsert_word(data: WordData, status: str = "done", deck_name: Optional[str] =
     """Insert or update a word record from scraped WordData.
     Existing audio_file and image_file are preserved on conflict (COALESCE).
     """
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute("""
             INSERT INTO words
                 (word, language_code, ipa, audio_file, image_file,
@@ -156,76 +155,68 @@ def upsert_word(data: WordData, status: str = "done", deck_name: Optional[str] =
             datetime.now(timezone.utc).isoformat(),
             status,
         ))
-        conn.commit()
 
 
 def set_audio_file(word: str, language_code: str, filename: str) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET audio_file=? WHERE word=? AND language_code=?",
             (filename, word, language_code),
         )
-        conn.commit()
 
 
 def set_image_file(word: str, language_code: str, filename: str) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET image_file=? WHERE word=? AND language_code=?",
             (filename, word, language_code),
         )
-        conn.commit()
 
 
 def set_status(word: str, language_code: str, status: str) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET status=? WHERE word=? AND language_code=?",
             (status, word, language_code),
         )
-        conn.commit()
 
 
 def set_error(word: str, language_code: str, message: str) -> None:
     """Set status to 'error' and store the error message."""
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET status='error', error_message=? WHERE word=? AND language_code=?",
             (message, word, language_code),
         )
-        conn.commit()
 
 
 def set_anki_note_id(word: str, language_code: str, note_id: int) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET anki_note_id=?, status='synced' WHERE word=? AND language_code=?",
             (note_id, word, language_code),
         )
-        conn.commit()
 
 
 def set_deck_name(word: str, language_code: str, deck_name: str) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET deck_name=? WHERE word=? AND language_code=?",
             (deck_name, word, language_code),
         )
-        conn.commit()
 
 
 def clear_image(word: str, language_code: str) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET image_file=NULL, status='pending_sync' WHERE word=? AND language_code=?",
             (word, language_code),
         )
-        conn.commit()
 
 
 def delete_word(word: str, language_code: str) -> Optional[int]:
     """Delete a word from the DB. Returns the anki_note_id if it had one."""
-    with get_connection() as conn:
+    with _conn() as conn:
         row = conn.execute(
             "SELECT anki_note_id FROM words WHERE word=? AND language_code=?",
             (word, language_code),
@@ -234,7 +225,6 @@ def delete_word(word: str, language_code: str) -> Optional[int]:
             "DELETE FROM words WHERE word=? AND language_code=?",
             (word, language_code),
         )
-        conn.commit()
     return row["anki_note_id"] if row else None
 
 
@@ -243,17 +233,16 @@ def queue_delete(word: str, language_code: str) -> None:
     The word stays visible in the UI with a 'Pending delete' badge until
     the next sync flushes it from Anki and the DB.
     """
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET status='pending_delete' WHERE word=? AND language_code=?",
             (word, language_code),
         )
-        conn.commit()
 
 
 def undelete_word(word: str, language_code: str) -> None:
     """Restore a pending_delete word back to its previous synced/pending_sync state."""
-    with get_connection() as conn:
+    with _conn() as conn:
         row = conn.execute(
             "SELECT anki_note_id FROM words WHERE word=? AND language_code=? AND status='pending_delete'",
             (word, language_code),
@@ -265,11 +254,10 @@ def undelete_word(word: str, language_code: str) -> None:
             "UPDATE words SET status=? WHERE word=? AND language_code=?",
             (restore_status, word, language_code),
         )
-        conn.commit()
 
 
 def get_pending_deletes(language_code: Optional[str] = None) -> list[dict]:
-    with get_connection() as conn:
+    with _conn() as conn:
         if language_code:
             rows = conn.execute(
                 "SELECT * FROM words WHERE status='pending_delete' AND language_code=?",
@@ -284,7 +272,7 @@ def get_pending_deletes(language_code: Optional[str] = None) -> list[dict]:
 
 def get_last_used_deck(language_code: str = "en") -> Optional[str]:
     """Return the deck_name most recently used for this language, or None."""
-    with get_connection() as conn:
+    with _conn() as conn:
         row = conn.execute(
             """SELECT deck_name FROM words
                WHERE language_code=? AND deck_name IS NOT NULL
@@ -299,38 +287,36 @@ def get_last_used_deck(language_code: str = "en") -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
-    with get_connection() as conn:
+    with _conn() as conn:
         row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
     return row["value"] if row else default
 
 
 def set_setting(key: str, value: str) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (key, value),
         )
-        conn.commit()
 
 
 def get_all_settings() -> dict[str, str]:
-    with get_connection() as conn:
+    with _conn() as conn:
         rows = conn.execute("SELECT key, value FROM settings").fetchall()
     return {r["key"]: r["value"] for r in rows}
 
 
 def set_translation(word: str, language_code: str, translation: str, translation_language: Optional[str] = None) -> None:
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET translation=?, translation_language=? WHERE word=? AND language_code=?",
             (translation, translation_language, word, language_code),
         )
-        conn.commit()
 
 
 def get_untranslated_words(language_code: str) -> list[dict]:
     """Return words that have been scraped but have no translation yet."""
-    with get_connection() as conn:
+    with _conn() as conn:
         rows = conn.execute(
             """SELECT * FROM words
                WHERE language_code=? AND translation IS NULL
@@ -342,12 +328,11 @@ def get_untranslated_words(language_code: str) -> list[dict]:
 
 def rename_word(word: str, language_code: str, new_word: str) -> None:
     """Rename a word, keeping all other data intact."""
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             "UPDATE words SET word=?, status='pending_sync' WHERE word=? AND language_code=?",
             (new_word, word, language_code),
         )
-        conn.commit()
 
 
 def update_fields(word: str, language_code: str, fields: dict) -> None:
@@ -362,12 +347,11 @@ def update_fields(word: str, language_code: str, fields: dict) -> None:
             updates[key] = json.dumps(updates[key])
     cols = ", ".join(f"{k}=?" for k in updates)
     values = list(updates.values()) + [word, language_code]
-    with get_connection() as conn:
+    with _conn() as conn:
         conn.execute(
             f"UPDATE words SET {cols}, status='pending_sync' WHERE word=? AND language_code=?",
             values,
         )
-        conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -375,7 +359,7 @@ def update_fields(word: str, language_code: str, fields: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def word_exists(word: str, language_code: str) -> bool:
-    with get_connection() as conn:
+    with _conn() as conn:
         row = conn.execute(
             "SELECT 1 FROM words WHERE word=? AND language_code=?",
             (word, language_code),
@@ -384,7 +368,7 @@ def word_exists(word: str, language_code: str) -> bool:
 
 
 def get_word(word: str, language_code: str) -> Optional[dict]:
-    with get_connection() as conn:
+    with _conn() as conn:
         row = conn.execute(
             "SELECT * FROM words WHERE word=? AND language_code=?",
             (word, language_code),
@@ -393,7 +377,7 @@ def get_word(word: str, language_code: str) -> Optional[dict]:
 
 
 def get_all_words(language_code: Optional[str] = None) -> list[dict]:
-    with get_connection() as conn:
+    with _conn() as conn:
         if language_code:
             rows = conn.execute(
                 "SELECT * FROM words WHERE language_code=? ORDER BY word",
@@ -407,7 +391,7 @@ def get_all_words(language_code: Optional[str] = None) -> list[dict]:
 
 
 def get_pending_sync(language_code: Optional[str] = None) -> list[dict]:
-    with get_connection() as conn:
+    with _conn() as conn:
         if language_code:
             rows = conn.execute(
                 "SELECT * FROM words WHERE status IN ('done','pending_sync') AND language_code=?",
