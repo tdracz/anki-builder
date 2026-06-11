@@ -3,8 +3,40 @@ name: CI
 on:
   push:
     branches: [main]
+    paths:
+      - "backend/**"
+      - "tests/**"
+      - "frontend/src/**"
+      - "frontend/public/**"
+      - "frontend/index.html"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend/tsconfig*.json"
+      - "frontend/vite.config.ts"
+      - "frontend/eslint.config.js"
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "start.py"
+      - "scrape.py"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [main]
+    paths:
+      - "backend/**"
+      - "tests/**"
+      - "frontend/src/**"
+      - "frontend/public/**"
+      - "frontend/index.html"
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend/tsconfig*.json"
+      - "frontend/vite.config.ts"
+      - "frontend/eslint.config.js"
+      - "requirements.txt"
+      - "requirements-dev.txt"
+      - "start.py"
+      - "scrape.py"
+      - ".github/workflows/ci.yml"
 
 jobs:
   backend:
