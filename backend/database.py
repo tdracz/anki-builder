@@ -41,6 +41,22 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+from contextlib import contextmanager
+
+@contextmanager
+def _conn():
+    """Open a connection, commit on success, always close."""
+    conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def init_db() -> None:
     """Create tables if they don't exist."""
     with get_connection() as conn:
