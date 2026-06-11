@@ -12,7 +12,7 @@ export function AnkiStatus() {
     checkAnkiStatus()
     const id = setInterval(checkAnkiStatus, 15_000)
     return () => clearInterval(id)
-  }, [])
+  }, [checkAnkiStatus])
 
   const connected = ankiStatus?.connected ?? false
 

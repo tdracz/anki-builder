@@ -265,7 +265,15 @@ export function CardPreview({ word }: Props) {
 
       {/* Definitions */}
       <section>
-        <h3 className="text-sm uppercase tracking-widest text-gray-400 font-semibold mb-3">Definitions</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm uppercase tracking-widest text-gray-400 font-semibold">Definitions</h3>
+          {word.source_url && (
+            <a href={word.source_url} target="_blank" rel="noopener noreferrer"
+              className="text-sm text-blue-500 hover:text-blue-700 hover:underline">
+              View in dictionary →
+            </a>
+          )}
+        </div>
         {!editing ? (
           <DefinitionsList definitions={current.definitions ?? []} />
         ) : (
@@ -374,12 +382,6 @@ export function CardPreview({ word }: Props) {
           {word.anki_note_id && <span>Anki #{word.anki_note_id}</span>}
           {word.scraped_at && <span>Scraped {new Date(word.scraped_at).toLocaleDateString()}</span>}
         </div>
-        {word.source_url && (
-          <a href={word.source_url} target="_blank" rel="noopener noreferrer"
-            className="text-blue-500 hover:text-blue-700 hover:underline text-sm">
-            View in dictionary →
-          </a>
-        )}
       </div>
     </div>
   )

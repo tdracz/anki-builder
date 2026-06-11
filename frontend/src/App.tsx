@@ -21,16 +21,11 @@ export default function App() {
   const startX = useRef(0)
   const startWidth = useRef(DEFAULT_PREVIEW_WIDTH)
 
-  useEffect(() => {
-    loadLanguages()
-    loadWords()
-    checkAnkiStatus()
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadLanguages(); loadWords(); checkAnkiStatus() }, [])
 
-  // Auto-expand import panel when an import/rescrape starts
-  useEffect(() => {
-    if (importing) setImportOpen(true)
-  }, [importing])
+  // When importing is active the panel is always open; otherwise respect user toggle.
+  const isImportOpen = importing || importOpen
 
   const onMouseDown = (e: React.MouseEvent) => {
     dragging.current = true
@@ -89,17 +84,17 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Left: collapsible import panel */}
-        <aside className={`shrink-0 border-r border-gray-200 bg-white flex flex-col transition-all duration-200 ${importOpen ? 'w-80' : 'w-10'}`}>
+        <aside className={`shrink-0 border-r border-gray-200 bg-white flex flex-col transition-all duration-200 ${isImportOpen ? 'w-80' : 'w-10'}`}>
           {/* Panel header / toggle */}
           <button
             onClick={() => setImportOpen(v => !v)}
             className="flex items-center gap-2 px-3 py-3.5 text-sm font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors border-b border-gray-100 w-full text-left"
           >
-            <span className={`transition-transform duration-200 text-base ${importOpen ? '' : 'rotate-180'}`}>‹</span>
-            {importOpen && <span>Import</span>}
+            <span className={`transition-transform duration-200 text-base ${isImportOpen ? '' : 'rotate-180'}`}>‹</span>
+            {isImportOpen && <span>Import</span>}
           </button>
 
-          {importOpen && (
+          {isImportOpen && (
             <div className="p-5 overflow-y-auto flex-1">
               <ImportPanel />
             </div>

@@ -70,7 +70,11 @@ export function WordList() {
           onChange={() => {
             setSelected(prev => {
               const next = new Set(prev)
-              next.has(row.original.word) ? next.delete(row.original.word) : next.add(row.original.word)
+              if (next.has(row.original.word)) {
+                next.delete(row.original.word)
+              } else {
+                next.add(row.original.word)
+              }
               return next
             })
           }}
@@ -125,9 +129,9 @@ export function WordList() {
         )
       },
     }),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [selected, undeleteWord])
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: words,
     columns,

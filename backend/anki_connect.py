@@ -29,6 +29,7 @@ CARD_BACK = """\
 <hr>
 <div class="ipa">{{IPA}}</div>
 {{Image}}
+{{#Source}}<div class="source">{{Source}}</div>{{/Source}}
 <div class="definitions">{{Definitions}}</div>
 {{#Synonyms}}
 <div class="synonyms"><em>Synonyms:</em> {{Synonyms}}</div>
@@ -48,7 +49,6 @@ CARD_BACK = """\
 <div class="section-title">Word Origin</div>
 <div class="etymology">{{Etymology}}</div>
 {{/Etymology}}
-<div class="source">{{Source}}</div>
 """
 
 CARD_CSS = """\

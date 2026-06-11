@@ -22,16 +22,35 @@ FRONTEND = ROOT / "frontend"
 DIST = FRONTEND / "dist"
 
 
+def _frontend_src_mtime() -> float:
+    """Return the newest mtime across all tracked frontend source files."""
+    patterns = ["src/**/*", "index.html", "package.json", "vite.config.*", "tsconfig*"]
+    latest = 0.0
+    for pattern in patterns:
+        for p in FRONTEND.glob(pattern):
+            if p.is_file():
+                latest = max(latest, p.stat().st_mtime)
+    return latest
+
+
 def build_frontend():
-    if not DIST.exists() or not list(DIST.glob("*.html")):
+    stamp = DIST / ".build_stamp"
+    needs_build = (
+        not DIST.exists()
+        or not list(DIST.glob("*.html"))
+        or not stamp.exists()
+        or _frontend_src_mtime() > stamp.stat().st_mtime
+    )
+    if needs_build:
         print("Building frontend…")
         result = subprocess.run(["npm", "run", "build"], cwd=FRONTEND)
         if result.returncode != 0:
             print("Frontend build failed.", file=sys.stderr)
             sys.exit(1)
+        stamp.touch()
         print("Frontend built.")
     else:
-        print("Frontend already built (dist/ exists).")
+        print("Frontend already up to date (dist/ exists).")
 
 
 def main():
@@ -44,7 +63,6 @@ def main():
     if args.rebuild and DIST.exists():
         import shutil
         shutil.rmtree(DIST)
-
     build_frontend()
 
     url = f"http://localhost:{args.port}/app"
