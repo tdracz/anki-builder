@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            artifact_name: anki-builder-macos
+            binary: dist/anki-builder
+          - os: windows-latest
+            artifact_name: anki-builder-windows
+            binary: dist/anki-builder.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Build binary
+        run: pyinstaller anki-builder.spec --distpath dist --workpath build/pyinstaller
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
+
+  build-linux:
+    name: Build (Linux / manylinux_2_28)
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node.js
+        run: |
+          curl -fsSL https://rpm.nodesource.com/setup_lts.x | bash -
+          yum install -y nodejs
+
+      - name: Install Python dependencies
+        run: /opt/python/cp311-cp311/bin/pip install -r requirements.txt pyinstaller
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Build binary
+        run: /opt/python/cp311-cp311/bin/pyinstaller anki-builder.spec --distpath dist --workpath build/pyinstaller
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: anki-builder-linux
+          path: dist/anki-builder
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, build-linux]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Rename binaries for release
+        run: |
+          mv artifacts/anki-builder-macos/anki-builder artifacts/anki-builder-macos
+          mv artifacts/anki-builder-windows/anki-builder.exe artifacts/anki-builder-windows.exe
+          mv artifacts/anki-builder-linux/anki-builder artifacts/anki-builder-linux
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/anki-builder-macos
+            artifacts/anki-builder-windows.exe
+            artifacts/anki-builder-linux
+          generate_release_notes: true
